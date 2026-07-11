@@ -38,6 +38,11 @@
       font-size: 14px; cursor: pointer;
     }
     #modal button.cancel { background: #999; }
+    #modal button.other { background: #757575; }
+    #otherInputBox input {
+      width: 100%; box-sizing: border-box; padding: 8px; margin-top: 8px;
+      border: 1.5px solid #ddd; border-radius: 6px; font-size: 14px;
+    }
 
     #searchInput {
       width: calc(100% - 32px); box-sizing: border-box; padding: 10px 12px; margin: 10px 16px;
@@ -105,6 +110,13 @@
       <button onclick="chooseType('귀뚜라미')">귀뚜라미</button>
       <button onclick="chooseType('사마귀')">사마귀</button>
       <button onclick="chooseType('매미')">매미</button>
+      <button class="other" onclick="showOtherInput()">기타</button>
+
+      <div id="otherInputBox" style="display:none;">
+        <input type="text" id="otherTypeInput" placeholder="곤충 이름을 입력하세요" maxlength="19">
+        <button onclick="submitOtherType()">이 이름으로 등록</button>
+      </div>
+
       <button class="cancel" onclick="closeModal()">취소</button>
     </div>
   </div>
@@ -160,20 +172,20 @@
       "사마귀": "🙏",
       "매미": "🪰"
     };
+    const DEFAULT_COLOR = "#757575"; // 기타(목록에 없는 곤충)용 색
+    const DEFAULT_EMOJI = "🐛";      // 기타용 이모티콘
 
-    function escapeHtml(str) {
-      const div = document.createElement("div");
-      div.textContent = str;
-      return div.innerHTML;
-    }
+    function getColor(type) { return COLORS[type] || DEFAULT_COLOR; }
+    function getEmoji(type) { return EMOJI[type] || DEFAULT_EMOJI; }
 
     function renderLegend() {
       const legend = document.getElementById("legend");
       legend.innerHTML = "";
       const hint = document.createElement("div");
       hint.className = "hint";
-      hint.textContent = "📍 지도를 클릭하면 곤충을 골라 기록할 수 있어요. 잘못 찍었으면 핀을 눌러서 지울 수 있어요.";
+      hint.textContent = "📍 지도를 클릭하면 곤충을 골라 기록할 수 있어요. 목록에 없으면 '기타'로 직접 입력하세요.";
       legend.appendChild(hint);
+
       Object.keys(COLORS).forEach(function (type) {
         const item = document.createElement("div");
         item.className = "item";
@@ -186,6 +198,18 @@
         item.appendChild(label);
         legend.appendChild(item);
       });
+
+      // 기타 항목도 범례에 추가
+      const otherItem = document.createElement("div");
+      otherItem.className = "item";
+      const otherDot = document.createElement("span");
+      otherDot.className = "dot";
+      otherDot.style.background = DEFAULT_COLOR;
+      otherItem.appendChild(otherDot);
+      const otherLabel = document.createElement("span");
+      otherLabel.textContent = DEFAULT_EMOJI + " 기타";
+      otherItem.appendChild(otherLabel);
+      legend.appendChild(otherItem);
     }
     renderLegend();
 
@@ -201,7 +225,7 @@
         label: { text: record.type.slice(0, 2), color: "white", fontSize: "10px", fontWeight: "bold" },
         icon: {
           path: google.maps.SymbolPath.CIRCLE,
-          fillColor: COLORS[record.type],
+          fillColor: getColor(record.type),
           fillOpacity: 1,
           strokeColor: "white",
           strokeWeight: 2,
@@ -210,7 +234,7 @@
       });
 
       const content = document.createElement("div");
-      content.innerHTML = `<b>${EMOJI[record.type]} ${record.type}</b><br>${record.region || ""}<br>${record.date.slice(0, 10)}`;
+      content.innerHTML = `<b>${getEmoji(record.type)} ${record.type}</b><br>${record.region || ""}<br>${record.date.slice(0, 10)}`;
       const delBtn = document.createElement("button");
       delBtn.textContent = "이 기록 삭제";
       delBtn.style.cssText = "margin-top:6px; padding:4px 10px; background:#c62828; color:white; border:none; border-radius:4px; cursor:pointer;";
@@ -250,11 +274,11 @@
       filtered.forEach(function (r) {
         const li = document.createElement("li");
         li.className = "record-card";
-        li.style.borderLeftColor = COLORS[r.type];
+        li.style.borderLeftColor = getColor(r.type);
 
         const emoji = document.createElement("div");
         emoji.className = "emoji";
-        emoji.textContent = EMOJI[r.type] || "🐾";
+        emoji.textContent = getEmoji(r.type);
 
         const info = document.createElement("div");
         info.className = "info";
@@ -290,7 +314,6 @@
       });
     }
 
-    // ---- 카카오 API로 좌표 -> "구 동" 이름 변환하기 ----
     async function getGuDong(lat, lng) {
       const url = `https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?x=${lng}&y=${lat}`;
       try {
@@ -321,12 +344,28 @@
       });
     }
 
+    // ---- 기타 입력 ----
+    function showOtherInput() {
+      document.getElementById("otherInputBox").style.display = "block";
+    }
+    function submitOtherType() {
+      const input = document.getElementById("otherTypeInput");
+      const name = input.value.trim();
+      if (!name) {
+        alert("곤충 이름을 입력해주세요.");
+        return;
+      }
+      input.value = "";
+      document.getElementById("otherInputBox").style.display = "none";
+      chooseType(name);
+    }
+
     function closeModal() {
       document.getElementById("modal").style.display = "none";
+      document.getElementById("otherInputBox").style.display = "none";
       pendingLatLng = null;
     }
 
-    // ---- 의견 게시판 ----
     function toggleFeedback() {
       const board = document.getElementById("feedbackBoard");
       board.style.display = (board.style.display === "block") ? "none" : "block";
@@ -360,6 +399,11 @@
           li.innerHTML = `<div>${escapeHtml(f.content)}</div><div class="date">${dateStr}</div>`;
           ul.appendChild(li);
         });
+    }
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = str;
+      return div.innerHTML;
     }
 
     function attachFeedbackListener() {
