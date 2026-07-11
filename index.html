@@ -137,6 +137,7 @@
 
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 
   <script>
     const firebaseConfig = {
@@ -149,6 +150,17 @@
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+
+    // ---- 익명 로그인 ----
+    let currentUserId = null;
+    firebase.auth().signInAnonymously().catch(function (e) {
+      console.log("익명 로그인 실패:", e);
+    });
+    firebase.auth().onAuthStateChanged(function (user) {
+      currentUserId = user ? user.uid : null;
+      redrawAllPins();
+      renderList();
+    });
 
     const KAKAO_REST_KEY = "3b3d5d425343f60083378508fd7ab629";
 
@@ -172,8 +184,8 @@
       "사마귀": "🙏",
       "매미": "🪰"
     };
-    const DEFAULT_COLOR = "#757575"; // 기타(목록에 없는 곤충)용 색
-    const DEFAULT_EMOJI = "🐛";      // 기타용 이모티콘
+    const DEFAULT_COLOR = "#757575";
+    const DEFAULT_EMOJI = "🐛";
 
     function getColor(type) { return COLORS[type] || DEFAULT_COLOR; }
     function getEmoji(type) { return EMOJI[type] || DEFAULT_EMOJI; }
@@ -183,7 +195,7 @@
       legend.innerHTML = "";
       const hint = document.createElement("div");
       hint.className = "hint";
-      hint.textContent = "📍 지도를 클릭하면 곤충을 골라 기록할 수 있어요. 목록에 없으면 '기타'로 직접 입력하세요.";
+      hint.textContent = "📍 지도를 클릭하면 곤충을 골라 기록할 수 있어요. 내가 등록한 기록만 삭제할 수 있어요.";
       legend.appendChild(hint);
 
       Object.keys(COLORS).forEach(function (type) {
@@ -199,7 +211,6 @@
         legend.appendChild(item);
       });
 
-      // 기타 항목도 범례에 추가
       const otherItem = document.createElement("div");
       otherItem.className = "item";
       const otherDot = document.createElement("span");
@@ -235,14 +246,17 @@
 
       const content = document.createElement("div");
       content.innerHTML = `<b>${getEmoji(record.type)} ${record.type}</b><br>${record.region || ""}<br>${record.date.slice(0, 10)}`;
-      const delBtn = document.createElement("button");
-      delBtn.textContent = "이 기록 삭제";
-      delBtn.style.cssText = "margin-top:6px; padding:4px 10px; background:#c62828; color:white; border:none; border-radius:4px; cursor:pointer;";
-      delBtn.onclick = function () {
-        db.collection("records").doc(record.id).delete();
-      };
-      content.appendChild(document.createElement("br"));
-      content.appendChild(delBtn);
+
+      if (record.ownerId && record.ownerId === currentUserId) {
+        const delBtn = document.createElement("button");
+        delBtn.textContent = "이 기록 삭제";
+        delBtn.style.cssText = "margin-top:6px; padding:4px 10px; background:#c62828; color:white; border:none; border-radius:4px; cursor:pointer;";
+        delBtn.onclick = function () {
+          db.collection("records").doc(record.id).delete();
+        };
+        content.appendChild(document.createElement("br"));
+        content.appendChild(delBtn);
+      }
 
       const infoWindow = new google.maps.InfoWindow({ content: content });
       marker.addListener("click", function () {
@@ -253,6 +267,7 @@
     }
 
     function redrawAllPins() {
+      if (!map) return;
       clearMarkers();
       records.forEach(function (r) { addPin(r); });
     }
@@ -287,16 +302,19 @@
           <div class="line2">${r.region || "위치 확인 중"} · ${r.date.slice(0, 10)}</div>
         `;
 
-        const delBtn = document.createElement("button");
-        delBtn.className = "del";
-        delBtn.textContent = "삭제";
-        delBtn.onclick = function () {
-          db.collection("records").doc(r.id).delete();
-        };
-
         li.appendChild(emoji);
         li.appendChild(info);
-        li.appendChild(delBtn);
+
+        if (r.ownerId && r.ownerId === currentUserId) {
+          const delBtn = document.createElement("button");
+          delBtn.className = "del";
+          delBtn.textContent = "삭제";
+          delBtn.onclick = function () {
+            db.collection("records").doc(r.id).delete();
+          };
+          li.appendChild(delBtn);
+        }
+
         ul.appendChild(li);
       });
     }
@@ -333,6 +351,12 @@
       const savedLatLng = pendingLatLng;
       closeModal();
 
+      const user = firebase.auth().currentUser;
+      if (!user) {
+        alert("로그인 처리 중이에요. 잠시 후 다시 시도해주세요.");
+        return;
+      }
+
       const region = await getGuDong(savedLatLng.lat(), savedLatLng.lng());
 
       db.collection("records").add({
@@ -340,11 +364,14 @@
         lat: savedLatLng.lat(),
         lng: savedLatLng.lng(),
         region: region,
-        date: new Date().toISOString()
+        date: new Date().toISOString(),
+        ownerId: user.uid
+      }).catch(function (e) {
+        console.log("기록 저장 실패:", e);
+        alert("저장에 실패했어요: " + e.message);
       });
     }
 
-    // ---- 기타 입력 ----
     function showOtherInput() {
       document.getElementById("otherInputBox").style.display = "block";
     }
@@ -382,6 +409,12 @@
       input.value = "";
     }
 
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
     function renderFeedbackList() {
       const ul = document.getElementById("feedbackList");
       ul.innerHTML = "";
@@ -399,11 +432,6 @@
           li.innerHTML = `<div>${escapeHtml(f.content)}</div><div class="date">${dateStr}</div>`;
           ul.appendChild(li);
         });
-    }
-    function escapeHtml(str) {
-      const div = document.createElement("div");
-      div.textContent = str;
-      return div.innerHTML;
     }
 
     function attachFeedbackListener() {
