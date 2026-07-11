@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>우리 동네 곤충 지도</title>
+  <style>
+    #appHeader {
+      background: linear-gradient(135deg, #66bb6a, #2e7d32);
+      color: white;
+      padding: 22px 16px;
+      border-radius: 0 0 20px 20px;
+      text-align: center;
+      margin-bottom: 10px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+    }
+    #appHeader h1 { margin: 0; font-size: 26px; letter-spacing: -0.5px; }
+    #appHeader .subtitle { margin: 6px 0 0; font-size: 13px; opacity: 0.9; }
+
+    #map { width: 100%; height: 520px; }
+    #legend {
+      display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
+      padding: 10px 16px; font-size: 14px;
+    }
+    #legend .hint { width: 100%; color: #555; font-size: 13px; margin-bottom: 4px; }
+    #legend .item { display: flex; align-items: center; gap: 6px; }
+    #legend .dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+
+    #modal {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    }
+    #modal .box {
+      background: white; width: 280px; margin: 100px auto;
+      padding: 20px; border-radius: 10px; text-align: center;
+    }
+    #modal button {
+      display: block; width: 100%; margin: 6px 0; padding: 10px;
+      border: none; border-radius: 6px; background: #2e7d32; color: white;
+      font-size: 14px; cursor: pointer;
+    }
+    #modal button.cancel { background: #999; }
+
+    #searchInput {
+      width: calc(100% - 32px); box-sizing: border-box; padding: 10px 12px; margin: 10px 16px;
+      border: 1.5px solid #ddd; border-radius: 8px; font-size: 14px;
+    }
+    #recordList { list-style: none; padding: 0 16px; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+    .record-card {
+      display: flex; align-items: center; gap: 10px;
+      background: #f7f9f5; border-radius: 10px; padding: 10px 12px;
+      border-left: 6px solid #ccc;
+    }
+    .record-card .emoji { font-size: 24px; }
+    .record-card .info { flex: 1; }
+    .record-card .info .line1 { font-weight: 700; font-size: 14px; }
+    .record-card .info .line2 { font-size: 12px; color: #667; margin-top: 2px; }
+    .record-card button.del {
+      background: #fdecea; color: #c62828; border: none; border-radius: 6px;
+      padding: 6px 10px; font-size: 12px; cursor: pointer;
+    }
+
+    h3 { padding: 0 16px; }
+
+    #feedbackSection { margin: 20px 16px 40px; }
+    #feedbackToggle {
+      width: 100%; padding: 12px; border: none; border-radius: 10px;
+      background: #37474f; color: white; font-size: 14px; cursor: pointer;
+    }
+    #feedbackBoard {
+      display: none; margin-top: 10px; background: #f7f9f5; border-radius: 10px; padding: 14px;
+    }
+    #feedbackBoard .disclaimer {
+      font-size: 12px; color: #999; margin: 0 0 10px; font-style: italic;
+    }
+    #feedbackInput {
+      width: 100%; box-sizing: border-box; min-height: 60px; padding: 8px;
+      border: 1.5px solid #ddd; border-radius: 8px; font-size: 14px; font-family: inherit; resize: vertical;
+    }
+    #feedbackBoard .submitBtn {
+      margin-top: 6px; padding: 8px 14px; border: none; border-radius: 6px;
+      background: #2e7d32; color: white; font-size: 13px; cursor: pointer;
+    }
+    #feedbackList { list-style: none; padding: 0; margin: 14px 0 0; display: flex; flex-direction: column; gap: 8px; }
+    .feedback-card {
+      background: white; border-radius: 8px; padding: 10px 12px; font-size: 13px;
+      border: 1px solid #e5e5e5;
+    }
+    .feedback-card .date { color: #999; font-size: 11px; margin-top: 4px; }
+  </style>
+</head>
+<body>
+
+  <header id="appHeader">
+    <h1>🐞 우리 동네 곤충 지도 🦗</h1>
+    <p class="subtitle">우리 가족이 함께 만들어가는 살아있는 곤충 지도예요 🌿</p>
+  </header>
+
+  <div id="legend"></div>
+  <div id="map"></div>
+
+  <div id="modal">
+    <div class="box">
+      <p>어떤 곤충을 발견했나요?</p>
+      <button onclick="chooseType('장수풍뎅이')">장수풍뎅이</button>
+      <button onclick="chooseType('사슴벌레')">사슴벌레</button>
+      <button onclick="chooseType('귀뚜라미')">귀뚜라미</button>
+      <button onclick="chooseType('사마귀')">사마귀</button>
+      <button onclick="chooseType('매미')">매미</button>
+      <button class="cancel" onclick="closeModal()">취소</button>
+    </div>
+  </div>
+
+  <h3>기록 목록 (모두에게 실시간으로 공유돼요)</h3>
+  <input type="text" id="searchInput" placeholder="🔍 동네 이름으로 검색 (예: 옥수동)">
+  <ul id="recordList"></ul>
+
+  <div id="feedbackSection">
+    <button id="feedbackToggle" onclick="toggleFeedback()">💬 의견 남기기 / 모두의 의견 보기</button>
+    <div id="feedbackBoard">
+      <p class="disclaimer">※ 작성자의 의견이며, 모든 의견이 앱에 반영되지는 않습니다.</p>
+      <textarea id="feedbackInput" placeholder="이 앱에 대한 의견을 자유롭게 남겨주세요"></textarea>
+      <button class="submitBtn" onclick="submitFeedback()">등록</button>
+      <ul id="feedbackList"></ul>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyA4DcKNaKRAs1HynxsMe9pfiZrzqsKnhqU",
+      authDomain: "insectmap-a18b9.firebaseapp.com",
+      projectId: "insectmap-a18b9",
+      storageBucket: "insectmap-a18b9.firebasestorage.app",
+      messagingSenderId: "898094092296",
+      appId: "1:898094092296:web:a2a77bf9ab7ad1b4dd01bd"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const KAKAO_REST_KEY = "3b3d5d425343f60083378508fd7ab629";
+
+    let map;
+    let pendingLatLng = null;
+    let records = [];
+    let markersOnMap = [];
+    let feedbacks = [];
+
+    const COLORS = {
+      "장수풍뎅이": "#8d5524",
+      "사슴벌레": "#3e2723",
+      "귀뚜라미": "#558b2f",
+      "사마귀": "#7cb342",
+      "매미": "#455a64"
+    };
+    const EMOJI = {
+      "장수풍뎅이": "🪲",
+      "사슴벌레": "🐞",
+      "귀뚜라미": "🦗",
+      "사마귀": "🙏",
+      "매미": "🪰"
+    };
+
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function renderLegend() {
+      const legend = document.getElementById("legend");
+      legend.innerHTML = "";
+      const hint = document.createElement("div");
+      hint.className = "hint";
+      hint.textContent = "📍 지도를 클릭하면 곤충을 골라 기록할 수 있어요. 잘못 찍었으면 핀을 눌러서 지울 수 있어요.";
+      legend.appendChild(hint);
+      Object.keys(COLORS).forEach(function (type) {
+        const item = document.createElement("div");
+        item.className = "item";
+        const dot = document.createElement("span");
+        dot.className = "dot";
+        dot.style.background = COLORS[type];
+        item.appendChild(dot);
+        const label = document.createElement("span");
+        label.textContent = EMOJI[type] + " " + type;
+        item.appendChild(label);
+        legend.appendChild(item);
+      });
+    }
+    renderLegend();
+
+    function clearMarkers() {
+      markersOnMap.forEach(function (m) { m.setMap(null); });
+      markersOnMap = [];
+    }
+
+    function addPin(record) {
+      const marker = new google.maps.Marker({
+        position: { lat: record.lat, lng: record.lng },
+        map: map,
+        label: { text: record.type.slice(0, 2), color: "white", fontSize: "10px", fontWeight: "bold" },
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          fillColor: COLORS[record.type],
+          fillOpacity: 1,
+          strokeColor: "white",
+          strokeWeight: 2,
+          scale: 14
+        }
+      });
+
+      const content = document.createElement("div");
+      content.innerHTML = `<b>${EMOJI[record.type]} ${record.type}</b><br>${record.region || ""}<br>${record.date.slice(0, 10)}`;
+      const delBtn = document.createElement("button");
+      delBtn.textContent = "이 기록 삭제";
+      delBtn.style.cssText = "margin-top:6px; padding:4px 10px; background:#c62828; color:white; border:none; border-radius:4px; cursor:pointer;";
+      delBtn.onclick = function () {
+        db.collection("records").doc(record.id).delete();
+      };
+      content.appendChild(document.createElement("br"));
+      content.appendChild(delBtn);
+
+      const infoWindow = new google.maps.InfoWindow({ content: content });
+      marker.addListener("click", function () {
+        infoWindow.open(map, marker);
+      });
+
+      markersOnMap.push(marker);
+    }
+
+    function redrawAllPins() {
+      clearMarkers();
+      records.forEach(function (r) { addPin(r); });
+    }
+
+    function renderList() {
+      const searchValue = document.getElementById("searchInput").value.trim();
+      const filtered = searchValue
+        ? records.filter(function (r) { return r.region && r.region.includes(searchValue); })
+        : records;
+
+      const ul = document.getElementById("recordList");
+      ul.innerHTML = "";
+
+      if (filtered.length === 0) {
+        ul.innerHTML = `<li style="color:#888; padding:10px;">${searchValue ? "검색 결과가 없어요." : "아직 기록이 없어요."}</li>`;
+        return;
+      }
+
+      filtered.forEach(function (r) {
+        const li = document.createElement("li");
+        li.className = "record-card";
+        li.style.borderLeftColor = COLORS[r.type];
+
+        const emoji = document.createElement("div");
+        emoji.className = "emoji";
+        emoji.textContent = EMOJI[r.type] || "🐾";
+
+        const info = document.createElement("div");
+        info.className = "info";
+        info.innerHTML = `
+          <div class="line1">${r.type}</div>
+          <div class="line2">${r.region || "위치 확인 중"} · ${r.date.slice(0, 10)}</div>
+        `;
+
+        const delBtn = document.createElement("button");
+        delBtn.className = "del";
+        delBtn.textContent = "삭제";
+        delBtn.onclick = function () {
+          db.collection("records").doc(r.id).delete();
+        };
+
+        li.appendChild(emoji);
+        li.appendChild(info);
+        li.appendChild(delBtn);
+        ul.appendChild(li);
+      });
+    }
+
+    document.getElementById("searchInput").addEventListener("input", renderList);
+
+    function attachRealtimeListener() {
+      db.collection("records").onSnapshot(function (snapshot) {
+        records = [];
+        snapshot.forEach(function (docSnap) {
+          records.push(Object.assign({ id: docSnap.id }, docSnap.data()));
+        });
+        redrawAllPins();
+        renderList();
+      });
+    }
+
+    // ---- 카카오 API로 좌표 -> "구 동" 이름 변환하기 ----
+    async function getGuDong(lat, lng) {
+      const url = `https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?x=${lng}&y=${lat}`;
+      try {
+        const res = await fetch(url, {
+          headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` }
+        });
+        const data = await res.json();
+        const region = data.documents.find(function (d) { return d.region_type === "H"; }) || data.documents[0];
+        return region ? `${region.region_2depth_name} ${region.region_3depth_name}`.trim() : "위치 확인 불가";
+      } catch (e) {
+        console.log("카카오 지오코딩 실패:", e);
+        return "위치 확인 불가";
+      }
+    }
+
+    async function chooseType(type) {
+      const savedLatLng = pendingLatLng;
+      closeModal();
+
+      const region = await getGuDong(savedLatLng.lat(), savedLatLng.lng());
+
+      db.collection("records").add({
+        type: type,
+        lat: savedLatLng.lat(),
+        lng: savedLatLng.lng(),
+        region: region,
+        date: new Date().toISOString()
+      });
+    }
+
+    function closeModal() {
+      document.getElementById("modal").style.display = "none";
+      pendingLatLng = null;
+    }
+
+    // ---- 의견 게시판 ----
+    function toggleFeedback() {
+      const board = document.getElementById("feedbackBoard");
+      board.style.display = (board.style.display === "block") ? "none" : "block";
+    }
+
+    function submitFeedback() {
+      const input = document.getElementById("feedbackInput");
+      const text = input.value.trim();
+      if (!text) return;
+      db.collection("feedbacks").add({
+        content: text,
+        date: new Date().toISOString()
+      });
+      input.value = "";
+    }
+
+    function renderFeedbackList() {
+      const ul = document.getElementById("feedbackList");
+      ul.innerHTML = "";
+      if (feedbacks.length === 0) {
+        ul.innerHTML = `<li style="color:#888; font-size:13px;">아직 의견이 없어요. 첫 의견을 남겨보세요!</li>`;
+        return;
+      }
+      feedbacks
+        .slice()
+        .sort(function (a, b) { return new Date(b.date) - new Date(a.date); })
+        .forEach(function (f) {
+          const li = document.createElement("li");
+          li.className = "feedback-card";
+          const dateStr = f.date ? f.date.slice(0, 10) : "";
+          li.innerHTML = `<div>${escapeHtml(f.content)}</div><div class="date">${dateStr}</div>`;
+          ul.appendChild(li);
+        });
+    }
+
+    function attachFeedbackListener() {
+      db.collection("feedbacks").onSnapshot(function (snapshot) {
+        feedbacks = [];
+        snapshot.forEach(function (docSnap) {
+          feedbacks.push(Object.assign({ id: docSnap.id }, docSnap.data()));
+        });
+        renderFeedbackList();
+      });
+    }
+    attachFeedbackListener();
+
+    function initMap() {
+      const center = { lat: 37.5665, lng: 126.9780 };
+      map = new google.maps.Map(document.getElementById("map"), {
+        center: center,
+        zoom: 14
+      });
+
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function (position) {
+          map.setCenter({ lat: position.coords.latitude, lng: position.coords.longitude });
+        });
+      }
+
+      map.addListener("click", function (mapsMouseEvent) {
+        pendingLatLng = mapsMouseEvent.latLng;
+        document.getElementById("modal").style.display = "block";
+      });
+
+      attachRealtimeListener();
+    }
+  </script>
+
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyApm-DH_U_527aZVjPZ616Qtrc6oSkyJdY&callback=initMap" async defer></script>
+</body>
+</html>
