@@ -76,6 +76,20 @@
     .tabTitle { padding: 16px 16px 4px; margin: 0; font-size: 18px; }
     .tabSub { padding: 0 16px; margin: 0 0 10px; font-size: 12px; color: #777; }
 
+    #regionStatsSection { padding: 0 16px 14px; }
+    .statsTitle { font-size: 14px; margin: 0 0 8px; color: #444; }
+    #regionStats { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+    .region-stat-card {
+      display: flex; align-items: center; gap: 10px;
+      background: #eef5ec; border-radius: 8px; padding: 8px 12px; font-size: 13px;
+    }
+    .region-stat-card .rank {
+      width: 20px; height: 20px; border-radius: 50%; background: #2e7d32; color: white;
+      font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .region-stat-card .regionName { flex: 1; font-weight: 600; }
+    .region-stat-card .count { color: #2e7d32; font-weight: 700; }
+
     #searchInput {
       width: calc(100% - 32px); box-sizing: border-box; padding: 10px 12px; margin: 10px 16px;
       border: 1.5px solid #ddd; border-radius: 8px; font-size: 14px;
@@ -150,6 +164,10 @@
   <div id="tab-list" class="tab-page">
     <h3 class="tabTitle">📋 기록 목록</h3>
     <p class="tabSub">모두에게 실시간으로 공유돼요. 내가 등록한 기록만 삭제할 수 있어요.</p>
+    <div id="regionStatsSection">
+      <h4 class="statsTitle">🏆 동네별 기록 순위</h4>
+      <ul id="regionStats"></ul>
+    </div>
     <input type="text" id="searchInput" placeholder="🔍 동네 이름으로 검색 (예: 옥수동)">
     <ul id="recordList"></ul>
   </div>
@@ -411,6 +429,35 @@
         });
         redrawAllPins();
         renderList();
+        renderRegionStats();
+      });
+    }
+
+    function renderRegionStats() {
+      const counts = {};
+      records.forEach(function (r) {
+        if (!r.region || r.region === "위치 확인 불가") return;
+        counts[r.region] = (counts[r.region] || 0) + 1;
+      });
+
+      const sorted = Object.keys(counts)
+        .map(function (region) { return { region: region, count: counts[region] }; })
+        .sort(function (a, b) { return b.count - a.count; })
+        .slice(0, 5);
+
+      const ul = document.getElementById("regionStats");
+      ul.innerHTML = "";
+
+      if (sorted.length === 0) {
+        ul.innerHTML = `<li style="color:#888; font-size:13px;">아직 통계를 낼 만큼 기록이 없어요.</li>`;
+        return;
+      }
+
+      sorted.forEach(function (item, idx) {
+        const li = document.createElement("li");
+        li.className = "region-stat-card";
+        li.innerHTML = `<span class="rank">${idx + 1}</span><span class="regionName">${item.region}</span><span class="count">${item.count}건</span>`;
+        ul.appendChild(li);
       });
     }
 
