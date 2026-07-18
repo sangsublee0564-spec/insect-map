@@ -1,6 +1,6 @@
 // 아주 단순한 오프라인 캐시. 지도 타일/외부 API는 캐시하지 않고
 // 앱 자체 파일(껍데기)만 캐시해서, 네트워크가 잠깐 끊겨도 앱은 열리도록 합니다.
-const CACHE_NAME = "insect-map-cache-v1";
+const CACHE_NAME = "insect-map-cache-v2";
 const APP_SHELL = [
   "./index.html",
   "./manifest.json",
