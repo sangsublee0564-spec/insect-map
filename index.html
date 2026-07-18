@@ -271,6 +271,20 @@
       "사마귀": "🙏",
       "매미": "🪰"
     };
+
+    const ICON_URLS = {
+      "장수풍뎅이": "bug-rhino.png",
+      "사슴벌레": "bug-stag.png",
+      "귀뚜라미": "bug-cricket.png",
+      "사마귀": "bug-mantis.png",
+      "매미": "bug-cicada.png",
+      "__default__": "bug-other.png"
+    };
+
+    function getIconUrl(type) {
+      return ICON_URLS[type] || ICON_URLS["__default__"];
+    }
+
     const DEFAULT_COLOR = "#757575";
     const DEFAULT_EMOJI = "🐛";
 
@@ -336,14 +350,9 @@
       const marker = new google.maps.Marker({
         position: { lat: record.lat, lng: record.lng },
         map: map,
-        label: { text: record.type.slice(0, 2), color: "white", fontSize: "10px", fontWeight: "bold" },
         icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          fillColor: getColor(record.type),
-          fillOpacity: 1,
-          strokeColor: "white",
-          strokeWeight: 2,
-          scale: 14
+          url: getIconUrl(record.type),
+          scaledSize: new google.maps.Size(40, 40)
         }
       });
 
