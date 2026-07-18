@@ -54,6 +54,8 @@
     #legend .item { display: flex; align-items: center; gap: 6px; }
     #legend .dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
     #legend .legendIcon { width: 22px; height: 22px; border-radius: 50%; display: inline-block; object-fit: cover; }
+    #legend .iconCredit { width: 100%; text-align: right; font-size: 10px; color: #aaa; margin-top: 2px; }
+    #legend .iconCredit a { color: #aaa; }
 
     #modal {
       display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000;
@@ -177,9 +179,6 @@
   <div id="tab-feedback" class="tab-page">
     <h3 class="tabTitle">💬 의견 게시판</h3>
     <p class="tabSub">앱에 대한 의견을 자유롭게 남겨주세요.</p>
-    <p style="text-align:center; font-size:11px; color:#999; margin-top:24px;">
-      곤충 아이콘: <a href="https://www.flaticon.com" target="_blank" rel="noopener" style="color:#999;">Flaticon.com</a>
-    </p>
     <div id="feedbackSection">
       <div id="feedbackBoard">
         <p class="disclaimer">※ 작성자의 의견이며, 모든 의견이 앱에 반영되지는 않습니다.</p>
@@ -339,6 +338,11 @@
       otherLabel.textContent = "기타";
       otherItem.appendChild(otherLabel);
       legend.appendChild(otherItem);
+
+      const credit = document.createElement("div");
+      credit.className = "iconCredit";
+      credit.innerHTML = '아이콘: <a href="https://www.flaticon.com" target="_blank" rel="noopener">Flaticon.com</a>';
+      legend.appendChild(credit);
     }
     renderLegend();
 
