@@ -53,6 +53,7 @@
     #legend .hint { width: 100%; color: #555; font-size: 13px; margin-bottom: 4px; }
     #legend .item { display: flex; align-items: center; gap: 6px; }
     #legend .dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+    #legend .legendIcon { width: 22px; height: 22px; border-radius: 50%; display: inline-block; object-fit: cover; }
 
     #modal {
       display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000;
@@ -318,24 +319,24 @@
       Object.keys(COLORS).forEach(function (type) {
         const item = document.createElement("div");
         item.className = "item";
-        const dot = document.createElement("span");
-        dot.className = "dot";
-        dot.style.background = COLORS[type];
-        item.appendChild(dot);
+        const icon = document.createElement("img");
+        icon.className = "legendIcon";
+        icon.src = getIconUrl(type);
+        item.appendChild(icon);
         const label = document.createElement("span");
-        label.textContent = EMOJI[type] + " " + type;
+        label.textContent = type;
         item.appendChild(label);
         legend.appendChild(item);
       });
 
       const otherItem = document.createElement("div");
       otherItem.className = "item";
-      const otherDot = document.createElement("span");
-      otherDot.className = "dot";
-      otherDot.style.background = DEFAULT_COLOR;
-      otherItem.appendChild(otherDot);
+      const otherIcon = document.createElement("img");
+      otherIcon.className = "legendIcon";
+      otherIcon.src = ICON_URLS["__default__"];
+      otherItem.appendChild(otherIcon);
       const otherLabel = document.createElement("span");
-      otherLabel.textContent = DEFAULT_EMOJI + " 기타";
+      otherLabel.textContent = "기타";
       otherItem.appendChild(otherLabel);
       legend.appendChild(otherItem);
     }
